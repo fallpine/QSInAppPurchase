@@ -10,7 +10,7 @@ import StoreKit
 // 过期时间
 private let kExpirationTimestampKey = "kExpirationTimestampKey"
 
-class QSPurchase {
+public class QSPurchase {
     // MARK: - Func
     /// 获取产品
     func getProducts(productIds: [String], onSuccess: (([Product]) -> Void), onFailure: ((String) -> Void)) async {
