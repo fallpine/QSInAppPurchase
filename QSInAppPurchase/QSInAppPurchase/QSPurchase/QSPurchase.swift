@@ -180,10 +180,7 @@ public class QSPurchase {
                 }
                 
                 // 过期时间
-                let expirationDate = transaction.expirationDate
-                
-                // 是否有订阅
-                if let expirationDate = expirationDate {
+                if let expirationDate = transaction.expirationDate {
                     // 过期
                     if expirationDate.timeIntervalSince1970 < Date().timeIntervalSince1970 {
                         isVip = false
