@@ -94,6 +94,13 @@ public class QSPurchase {
         }
     }
     
+    /// 通过id获取商品
+    public func getProduct(by id: String) -> Product? {
+        return products.first { product in
+            return product.id == id
+        }
+    }
+    
     /// 监听交易更新
     private func listenForTransactions() async {
         // 启动时进行校验
@@ -110,7 +117,6 @@ public class QSPurchase {
         
         // 持续监听交易更新
         for await result in Transaction.updates {
-            print(result)
             await verifyTransaction(result: result)
         }
     }

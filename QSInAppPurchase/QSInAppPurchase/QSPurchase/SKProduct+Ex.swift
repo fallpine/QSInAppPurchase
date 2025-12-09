@@ -28,7 +28,15 @@ public extension Product {
     
     /// 试用周期值
     var trialPeriodValue: Int? {
-        return subscription?.introductoryOffer?.period.value
+        if let period = subscription?.introductoryOffer?.period {
+            if period.unit == .day {
+                if period.value % 7 == 0 {
+                    return period.value / 7
+                }
+            }
+            return period.value
+        }
+        return nil
     }
     
     /// 试用周期单位
@@ -46,7 +54,15 @@ public extension Product {
     
     /// 订阅周期值
     var subscriptionPeriodValue: Int? {
-        return subscription?.subscriptionPeriod.value
+        if let period = subscription?.subscriptionPeriod {
+            if period.unit == .day {
+                if period.value % 7 == 0 {
+                    return period.value / 7
+                }
+            }
+            return period.value
+        }
+        return nil
     }
     
     /// 订阅周期单位
