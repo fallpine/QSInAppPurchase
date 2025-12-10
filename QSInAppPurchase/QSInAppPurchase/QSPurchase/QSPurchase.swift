@@ -82,7 +82,12 @@ public class QSPurchase {
     }
     
     /// 恢复购买
-    public func restorePurchase(onSuccess: () -> Void, onFailure: () -> Void) async {
+    public func restorePurchase() async {
+        try? await AppStore.sync()
+    }
+    
+    /// 校验交易订单
+    public func checkTransactions(onSuccess: () -> Void, onFailure: () -> Void) async {
         for await result in Transaction.currentEntitlements {
             await verifyTransaction(result: result)
         }
