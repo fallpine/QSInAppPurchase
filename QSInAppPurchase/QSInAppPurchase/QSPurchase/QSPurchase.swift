@@ -143,6 +143,7 @@ public class QSPurchase {
                                     if !signedType.willAutoRenew {
                                         isVip = false
                                         vipAction?(isVip)
+                                        cancelFreeTrialAction?()
                                         return
                                     }
                             }
@@ -266,6 +267,7 @@ public class QSPurchase {
     
     private var isVip = false
     public var vipAction: ((Bool) -> Void)?
+    public var cancelFreeTrialAction: (() -> Void)?
     
     // MARK: - Singleton
     
