@@ -82,8 +82,25 @@ public class QSPurchase {
     }
     
     /// 恢复购买
-    public func restorePurchase() async {
-        try? await AppStore.sync()
+    public func restorePurchase(onSuccess: @escaping () -> Void,
+                                onFailure: @escaping (_ error: String) -> Void) async {
+        restoreSuccess = onSuccess
+        restoreFailure = onFailure
+        
+        
+        do {
+            try await AppStore.sync()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                guard let `self` = self else { return }
+                
+                if !isVip {
+                    onFailure("未知错误")
+                }
+            }
+        } catch let e {
+            onFailure(e.localizedDescription)
+        }
     }
     
     /// 校验交易订单
