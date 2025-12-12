@@ -97,9 +97,19 @@ public class QSPurchase {
                 if !isVip {
                     onFailure("未知错误")
                 }
+                
+                purchaseSuccess = nil
+                purchaseFailure = nil
+                restoreSuccess = nil
+                restoreFailure = nil
             }
         } catch let e {
             onFailure(e.localizedDescription)
+            
+            purchaseSuccess = nil
+            purchaseFailure = nil
+            restoreSuccess = nil
+            restoreFailure = nil
         }
     }
     
