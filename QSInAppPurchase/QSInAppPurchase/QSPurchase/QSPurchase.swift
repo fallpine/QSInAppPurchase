@@ -173,9 +173,12 @@ public class QSPurchase {
                                 case .verified(let signedType):
                                     // 已经取消
                                     if !signedType.willAutoRenew {
-                                        isVip = false
-                                        vipAction?(isVip)
-                                        cancelFreeTrialAction?()
+                                        if isVip {
+                                            isVip = false
+                                            vipAction?(isVip)
+                                            cancelFreeTrialAction?()
+                                        }
+                                        
                                         return
                                     }
                             }
