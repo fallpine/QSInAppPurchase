@@ -165,22 +165,25 @@ public class QSPurchase {
                 if transaction.productType == .autoRenewable {
                     // 免费期间
                     if (transaction.price ?? 0) <= 0 {
-                        // 是否取消续订
-                        if let info = await transaction.subscriptionStatus?.renewalInfo {
-                            switch info {
-                                case .unverified(_, _):
-                                    break
-                                case .verified(let signedType):
-                                    // 已经取消
-                                    if !signedType.willAutoRenew {
-                                        if isVip {
-                                            isVip = false
-                                            vipAction?(isVip)
-                                            cancelFreeTrialAction?()
+                        // 判断是否过去
+                        if (transaction.expirationDate?.timeIntervalSince1970 ?? 0) >= Date().timeIntervalSince1970 {
+                            // 是否取消续订
+                            if let info = await transaction.subscriptionStatus?.renewalInfo {
+                                switch info {
+                                    case .unverified(_, _):
+                                        break
+                                    case .verified(let signedType):
+                                        // 已经取消
+                                        if !signedType.willAutoRenew {
+                                            if isVip {
+                                                isVip = false
+                                                vipAction?(isVip)
+                                                cancelFreeTrialAction?()
+                                            }
+                                            
+                                            return
                                         }
-                                        
-                                        return
-                                    }
+                                }
                             }
                         }
                     }
