@@ -143,7 +143,8 @@ public class QSPurchase {
         }
         if !hasTransaction {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-                self?.vipAction?(false)
+                self?.cancelProductId = ""
+                self?.updateVipState(isVip: false)
             }
         }
         
@@ -175,10 +176,11 @@ public class QSPurchase {
                                     case .verified(let signedType):
                                         // 已经取消
                                         if !signedType.willAutoRenew {
-                                            if isVip {
-                                                isVip = false
-                                                vipAction?(isVip)
+                                            cancelProductId = transaction.productID
+                                            updateVipState(isVip: false)
+                                            if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil {
                                                 cancelFreeTrialAction?()
+                                                UserDefaults.standard.removeObject(forKey: kExpirationTimestampKey)
                                             }
                                             
                                             return
@@ -192,8 +194,8 @@ public class QSPurchase {
                 // 判断过期时间
                 if let expirationTimestamp = UserDefaults.standard.value(forKey: kExpirationTimestampKey) as? Double {
                     if expirationTimestamp > Date().timeIntervalSince1970 {
-                        isVip = true
-                        vipAction?(isVip)
+                        cancelProductId = ""
+                        updateVipState(isVip: true)
                         return
                     }
                 }
@@ -228,16 +230,16 @@ public class QSPurchase {
                 if let expirationDate = transaction.expirationDate {
                     // 过期
                     if expirationDate.timeIntervalSince1970 < Date().timeIntervalSince1970 {
-                        isVip = false
-                        vipAction?(isVip)
+                        cancelProductId = ""
+                        updateVipState(isVip: false)
                     }
                     // 未过期
                     else {
                         purchaseSuccesHandler(originalID: String(transaction.originalID), originalPurchaseDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000), expirationDate: expirationDate)
                     }
                 } else {
-                    isVip = false
-                    vipAction?(isVip)
+                    cancelProductId = ""
+                    updateVipState(isVip: false)
                 }
                 
                 // 处理未验证的交易
@@ -245,8 +247,8 @@ public class QSPurchase {
                 // 结束交易
                 await transaction.finish()
                 myPrint("交易验证失败: \(error)")
-                isVip = false
-                vipAction?(isVip)
+            cancelProductId = ""
+            updateVipState(isVip: false)
                 
                 // 购买失败
                 if let failure = purchaseFailure {
@@ -266,8 +268,8 @@ public class QSPurchase {
     
     /// 购买成功
     private func purchaseSuccesHandler(originalID: String, originalPurchaseDate: String, expirationDate: Date) {
-        isVip = true
-        vipAction?(isVip)
+        cancelProductId = ""
+        updateVipState(isVip: true)
         
         // 保存过期时间
         let expirationTimestamp = expirationDate.timeIntervalSince1970
@@ -288,6 +290,12 @@ public class QSPurchase {
         restoreFailure = nil
     }
     
+    /// 刷新vip状态
+    private func updateVipState(isVip: Bool) {
+        self.isVip = isVip
+        vipAction?(isVip)
+    }
+    
     private func myPrint(_ items: Any...) {
 #if DEBUG
         print(items)
@@ -306,6 +314,7 @@ public class QSPurchase {
     private var isVip = false
     public var vipAction: ((Bool) -> Void)?
     public var cancelFreeTrialAction: (() -> Void)?
+    public var cancelProductId = ""
     
     // MARK: - Singleton
     
