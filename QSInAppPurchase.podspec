@@ -16,7 +16,7 @@ Pod::Spec.new do |spec|
   #
 
   spec.name         = "QSInAppPurchase"
-  spec.version      = "1.1.2"
+  spec.version      = "1.1.3"
   spec.summary      = "应用内购"
 
   # This description is used to generate tags and improve search results.
@@ -63,7 +63,7 @@ Pod::Spec.new do |spec|
   #
 
   # spec.platform     = :ios
-  spec.platform     = :ios, "15.0"
+  # spec.platform     = :ios, "15.0"
 
   #  When using multiple platforms
   # spec.ios.deployment_target = "5.0"
@@ -71,6 +71,8 @@ Pod::Spec.new do |spec|
   # spec.watchos.deployment_target = "2.0"
   # spec.tvos.deployment_target = "9.0"
   # spec.visionos.deployment_target = "1.0"
+  spec.ios.deployment_target     = "15.0"
+  spec.watchos.deployment_target = "8.0"
 
 
   # ――― Source Location ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
