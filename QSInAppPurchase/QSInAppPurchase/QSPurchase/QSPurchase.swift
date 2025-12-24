@@ -9,6 +9,8 @@ import StoreKit
 
 // 过期时间
 private let kExpirationTimestampKey = "kExpirationTimestampKey"
+// 取消试订
+private let kCancelFreeTrialKey = "kCancelFreeTrialKey"
 
 @MainActor
 public class QSPurchase {
@@ -178,10 +180,13 @@ public class QSPurchase {
                                         if !signedType.willAutoRenew {
                                             cancelProductId = transaction.productID
                                             updateVipState(isVip: false)
-                                            if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil {
+                                            
+                                            if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil &&
+                                                !((UserDefaults.standard.value(forKey: kCancelFreeTrialKey) as? Bool) ?? false) {
                                                 cancelFreeTrialAction?()
                                                 UserDefaults.standard.removeObject(forKey: kExpirationTimestampKey)
                                             }
+                                            UserDefaults.standard.setValue(true, forKey: kCancelFreeTrialKey)
                                             
                                             return
                                         }
