@@ -51,7 +51,12 @@ public class QSPurchase {
     
     /// 购买产品
     public func requestPurchase(product: Product,
-                                onSuccess: @escaping ((_ purchaseID: String, _ subscriptionDate: String) -> Void),
+                                onSuccess: @escaping ((_ productID: String,
+                                                       _ transactionID: String,
+                                                       _ originalTransactionID: String,
+                                                       _ subscriptionDate: String,
+                                                       _ originalSubscriptionDate: String,
+                                                       _ price: String) -> Void),
                                 onFailure: @escaping ((_ error: String) -> Void),
                                 onCancel: () -> Void) async
     {
@@ -161,9 +166,6 @@ public class QSPurchase {
         switch result {
                 // 已验证的交易
             case let .verified(transaction):
-                // 结束交易
-                await transaction.finish()
-                
                 // 商品类型是否是续订类型
                 if transaction.productType == .autoRenewable {
                     // 免费期间
@@ -205,6 +207,14 @@ public class QSPurchase {
                     }
                 }
                 
+                // 一条交易只处理一次
+                let id = String(transaction.id)
+                guard !handledTransactionIDs.contains(id) else {
+                    return
+                }
+                // 结束交易
+                await transaction.finish()
+                
                 // 产品类型
                 let productType = transaction.productType
                 switch productType {
@@ -215,7 +225,13 @@ public class QSPurchase {
                         // 非消耗品，终身有效
                     case .nonConsumable:
                         if let dateIn100Years = Calendar.current.date(byAdding: .year, value: 100, to: Date()) {
-                            purchaseSuccesHandler(originalID: String(transaction.originalID), originalPurchaseDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000), expirationDate: dateIn100Years)
+                            purchaseSuccesHandler(productID: transaction.productID,
+                                                  transactionID: String(transaction.id),
+                                                  originalTransactionID: String(transaction.originalID),
+                                                  subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
+                                                  originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
+                                                  price: transaction.price?.formatted() ?? "",
+                                                  expirationDate: dateIn100Years)
                         }
                         return
                         
@@ -240,7 +256,13 @@ public class QSPurchase {
                     }
                     // 未过期
                     else {
-                        purchaseSuccesHandler(originalID: String(transaction.originalID), originalPurchaseDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000), expirationDate: expirationDate)
+                        purchaseSuccesHandler(productID: transaction.productID,
+                                              transactionID: String(transaction.id),
+                                              originalTransactionID: String(transaction.originalID),
+                                              subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
+                                              originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
+                                              price: transaction.price?.formatted() ?? "",
+                                              expirationDate: expirationDate)
                     }
                 } else {
                     cancelProductId = ""
@@ -252,27 +274,30 @@ public class QSPurchase {
                 // 结束交易
                 await transaction.finish()
                 myPrint("交易验证失败: \(error)")
-            cancelProductId = ""
-            updateVipState(isVip: false)
+                cancelProductId = ""
+                updateVipState(isVip: false)
                 
                 // 购买失败
                 if let failure = purchaseFailure {
                     failure(error.localizedDescription)
+                    purchaseFailure = nil
                 }
                 // 恢复购买失败
                 else if let failure = restoreFailure {
                     failure(error.localizedDescription)
+                    restoreFailure = nil
                 }
-                
-                purchaseSuccess = nil
-                purchaseFailure = nil
-                restoreSuccess = nil
-                restoreFailure = nil
         }
     }
     
     /// 购买成功
-    private func purchaseSuccesHandler(originalID: String, originalPurchaseDate: String, expirationDate: Date) {
+    private func purchaseSuccesHandler(productID: String,
+                                       transactionID: String,
+                                       originalTransactionID: String,
+                                       subscriptionDate: String,
+                                       originalSubscriptionDate: String,
+                                       price: String,
+                                       expirationDate: Date) {
         cancelProductId = ""
         updateVipState(isVip: true)
         
@@ -282,17 +307,19 @@ public class QSPurchase {
         
         // 购买成功
         if let success = purchaseSuccess {
-            success(originalID, originalPurchaseDate)
+            success(productID,
+                    transactionID,
+                    originalTransactionID,
+                    subscriptionDate,
+                    originalSubscriptionDate,
+                    price)
+            purchaseSuccess = nil
         }
         // 恢复购买成功
         else if let success = restoreSuccess {
             success()
+            restoreSuccess = nil
         }
-        
-        purchaseSuccess = nil
-        purchaseFailure = nil
-        restoreSuccess = nil
-        restoreFailure = nil
     }
     
     /// 刷新vip状态
@@ -308,10 +335,15 @@ public class QSPurchase {
     }
     
     // MARK: - Property
-    
+    private var handledTransactionIDs = Set<String>()
     // 所有产品
     private var products: [Product] = []
-    private var purchaseSuccess: ((_ purchaseID: String, _ subscriptionDate: String) -> Void)?
+    private var purchaseSuccess: ((_ productID: String,
+                                   _ transactionID: String,
+                                   _ originalTransactionID: String,
+                                   _ subscriptionDate: String,
+                                   _ originalSubscriptionDate: String,
+                                   _ price: String) -> Void)?
     private var purchaseFailure: ((_ error: String) -> Void)?
     private var restoreSuccess: (() -> Void)?
     private var restoreFailure: ((_ error: String) -> Void)?
