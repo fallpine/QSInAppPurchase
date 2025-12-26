@@ -57,7 +57,8 @@ public class QSPurchase {
                                                        _ subscriptionDate: String,
                                                        _ originalSubscriptionDate: String,
                                                        _ price: String,
-                                                       _ tradedProductIDs: String) -> Void),
+                                                       _ tradedProductIDs: String,
+                                                       _ isCheckedTransaction: Bool) -> Void),
                                 onFailure: @escaping ((_ error: String) -> Void),
                                 onCancel: () -> Void) async
     {
@@ -210,12 +211,7 @@ public class QSPurchase {
                 
                 // 交易过的商品id
                 tradedProductIDs.insert(transaction.productID)
-                // 一条交易只处理一次
-                let id = String(transaction.id)
-                guard !handledTransactionIDs.contains(id) else {
-                    return
-                }
-                handledTransactionIDs.insert(id)
+                
                 // 结束交易
                 await transaction.finish()
                 
@@ -236,7 +232,8 @@ public class QSPurchase {
                                                   originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
                                                   price: transaction.price?.formatted() ?? "",
                                                   expirationDate: dateIn100Years,
-                                                  tradedProductIDs: tradedProductIDs.joined(separator: "、"))
+                                                  tradedProductIDs: tradedProductIDs.joined(separator: "、"),
+                                                  isCheckedTransaction: handledTransactionIDs.contains(String(transaction.id)))
                         }
                         return
                         
@@ -268,12 +265,15 @@ public class QSPurchase {
                                               originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
                                               price: transaction.price?.formatted() ?? "",
                                               expirationDate: expirationDate,
-                                              tradedProductIDs: tradedProductIDs.joined(separator: "、"))
+                                              tradedProductIDs: tradedProductIDs.joined(separator: "、"),
+                                              isCheckedTransaction: handledTransactionIDs.contains(String(transaction.id)))
                     }
                 } else {
                     cancelProductId = ""
                     updateVipState(isVip: false)
                 }
+                // 记录校验过的交易id
+                handledTransactionIDs.insert(String(transaction.id))
                 
                 // 处理未验证的交易
             case let .unverified(transaction, error):
@@ -304,7 +304,8 @@ public class QSPurchase {
                                        originalSubscriptionDate: String,
                                        price: String,
                                        expirationDate: Date,
-                                       tradedProductIDs: String) {
+                                       tradedProductIDs: String,
+                                       isCheckedTransaction: Bool) {
         cancelProductId = ""
         updateVipState(isVip: true)
         
@@ -320,7 +321,8 @@ public class QSPurchase {
                     subscriptionDate,
                     originalSubscriptionDate,
                     price,
-                    tradedProductIDs)
+                    tradedProductIDs,
+                    isCheckedTransaction)
             purchaseSuccess = nil
         }
         // 恢复购买成功
@@ -355,7 +357,8 @@ public class QSPurchase {
                                    _ subscriptionDate: String,
                                    _ originalSubscriptionDate: String,
                                    _ price: String,
-                                   _ tradedProductIDs: String) -> Void)?
+                                   _ tradedProductIDs: String,
+                                   _ isCheckedTransaction: Bool) -> Void)?
     private var purchaseFailure: ((_ error: String) -> Void)?
     private var restoreSuccess: (() -> Void)?
     private var restoreFailure: ((_ error: String) -> Void)?

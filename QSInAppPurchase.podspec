@@ -16,7 +16,7 @@ Pod::Spec.new do |spec|
   #
 
   spec.name         = "QSInAppPurchase"
-  spec.version      = "1.1.7"
+  spec.version      = "1.1.8"
   spec.summary      = "应用内购"
 
   # This description is used to generate tags and improve search results.
