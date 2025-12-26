@@ -212,6 +212,7 @@ public class QSPurchase {
                 guard !handledTransactionIDs.contains(id) else {
                     return
                 }
+                handledTransactionIDs.insert(id)
                 // 结束交易
                 await transaction.finish()
                 
