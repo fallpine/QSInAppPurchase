@@ -9,8 +9,10 @@ import StoreKit
 
 // 过期时间
 private let kExpirationTimestampKey = "kExpirationTimestampKey"
-// 取消试订
-private let kCancelFreeTrialKey = "kCancelFreeTrialKey"
+// 取消试订的交易id
+private let kCancelFreeTrialTransactionIds = "kCancelFreeTrialTransactionIds"
+// 取消续订的交易id
+private let kCancelAutoRenewTransactionIds = "kCancelAutoRenewTransactionIds"
 
 @MainActor
 public class QSPurchase {
@@ -56,9 +58,7 @@ public class QSPurchase {
                                                        _ originalTransactionID: String,
                                                        _ subscriptionDate: String,
                                                        _ originalSubscriptionDate: String,
-                                                       _ price: String,
-                                                       _ tradedProductIDs: String,
-                                                       _ isCheckedTransaction: Bool) -> Void),
+                                                       _ price: String) -> Void),
                                 onFailure: @escaping ((_ error: String) -> Void),
                                 onCancel: () -> Void) async
     {
@@ -68,17 +68,17 @@ public class QSPurchase {
         do {
             let result = try await product.purchase()
             switch result {
-                case let .success(transactionResult):
-                    await verifyTransaction(result: transactionResult)
-                    
-                case .userCancelled:
-                    onCancel()
-                    
-                case .pending:
-                    break
-                    
-                @unknown default:
-                    break
+            case let .success(transactionResult):
+                await verifyTransaction(result: transactionResult)
+                
+            case .userCancelled:
+                onCancel()
+                
+            case .pending:
+                break
+                
+            @unknown default:
+                break
             }
         } catch {
             onFailure(error.localizedDescription)
@@ -144,15 +144,18 @@ public class QSPurchase {
     
     /// 监听交易更新
     private func listenForTransactions() async {
+        // 检查历史订单
+        await checkHistoryTransactions()
+        
         // 启动时进行校验
         var hasTransaction = false
         for await result in Transaction.currentEntitlements {
+            // 有历史交易订单
             hasTransaction = true
             await verifyTransaction(result: result)
         }
         if !hasTransaction {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-                self?.cancelProductId = ""
                 self?.updateVipState(isVip: false)
             }
         }
@@ -160,139 +163,175 @@ public class QSPurchase {
         // 持续监听交易更新
         for await result in Transaction.updates {
             await verifyTransaction(result: result)
+            // 检查历史订单
+            await checkHistoryTransactions()
+        }
+    }
+    
+    /// 检查历史订单
+    private func checkHistoryTransactions() async {
+        if hasHistoryTransaction {
+            return
+        }
+        
+        var count = 0
+        for await result in Transaction.all {
+            switch result {
+            case let .verified(transaction):
+                myPrint("transactionId", transaction.id)
+                
+                count += 1
+                if count > 0 {
+                    hasHistoryTransaction = true
+                    break
+                }
+                
+            default:
+                continue
+            }
         }
     }
     
     /// 校验交易
     private func verifyTransaction(result: VerificationResult<Transaction>) async {
         switch result {
-                // 已验证的交易
-            case let .verified(transaction):
-                // 商品类型是否是续订类型
-                if transaction.productType == .autoRenewable {
-                    // 免费期间
-                    if (transaction.price ?? 0) <= 0 {
-                        // 判断是否过去
-                        if (transaction.expirationDate?.timeIntervalSince1970 ?? 0) >= Date().timeIntervalSince1970 {
-                            // 是否取消续订
-                            if let info = await transaction.subscriptionStatus?.renewalInfo {
-                                switch info {
-                                    case .unverified(_, _):
-                                        break
-                                    case .verified(let signedType):
-                                        // 已经取消
-                                        if !signedType.willAutoRenew {
-                                            cancelProductId = transaction.productID
-                                            updateVipState(isVip: false)
+            // 已验证的交易
+        case let .verified(transaction):
+            myPrint("transactionId", transaction.id)
+            
+            // 商品类型是否是续订类型
+            if transaction.productType == .autoRenewable {
+                // 是否取消续订
+                if let info = await transaction.subscriptionStatus?.renewalInfo {
+                    switch info {
+                    case .unverified(_, _):
+                        break
+                    case .verified(let signedType):
+                        // 已经取消
+                        if !signedType.willAutoRenew {
+                            // 判断是否过期
+                            if (transaction.expirationDate?.timeIntervalSince1970 ?? 0) >= Date().timeIntervalSince1970 {
+                                let historyTransactionId = (UserDefaults.standard.value(forKey: kCancelAutoRenewTransactionIds) as? String) ?? ""
+                                let transactionId = String(transaction.id)
+                                
+                                if !historyTransactionId.contains(transactionId) {
+                                    var historyTransactionIds = historyTransactionId.components(separatedBy: "、")
+                                    historyTransactionIds.append(transactionId)
+                                    UserDefaults.standard.setValue(historyTransactionIds.joined(separator: "、"), forKey: kCancelAutoRenewTransactionIds)
+                                    
+                                    cancelAutoRenewAction?(transaction.productID, String(transaction.id))
+                                }
+                            }
+                            
+                            // 免费期间
+                            if (transaction.price ?? 0) <= 0 {
+                                // 判断是否过期
+                                if (transaction.expirationDate?.timeIntervalSince1970 ?? 0) >= Date().timeIntervalSince1970 {
+                                    updateVipState(isVip: false)
+                                    
+                                    if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil {
+                                        if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil {
+                                            let historyTransactionId = (UserDefaults.standard.value(forKey: kCancelFreeTrialTransactionIds) as? String) ?? ""
+                                            let transactionId = String(transaction.id)
                                             
-                                            if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil &&
-                                                !((UserDefaults.standard.value(forKey: kCancelFreeTrialKey) as? Bool) ?? false) {
-                                                cancelFreeTrialAction?()
+                                            if !historyTransactionId.contains(transactionId) {
+                                                var historyTransactionIds = historyTransactionId.components(separatedBy: "、")
+                                                historyTransactionIds.append(transactionId)
+                                                UserDefaults.standard.setValue(historyTransactionIds.joined(separator: "、"), forKey: kCancelFreeTrialTransactionIds)
+                                                
+                                                cancelFreeTrialAction?(transaction.productID, String(transaction.id))
                                                 UserDefaults.standard.removeObject(forKey: kExpirationTimestampKey)
                                             }
-                                            UserDefaults.standard.setValue(true, forKey: kCancelFreeTrialKey)
-                                            
-                                            return
                                         }
+                                    }
+                                    return
                                 }
                             }
                         }
                     }
                 }
-                
-                // 判断过期时间
-                if let expirationTimestamp = UserDefaults.standard.value(forKey: kExpirationTimestampKey) as? Double {
-                    if expirationTimestamp > Date().timeIntervalSince1970 {
-                        cancelProductId = ""
-                        updateVipState(isVip: true)
-                        return
-                    }
+            }
+            
+            // 判断过期时间
+            if let expirationTimestamp = UserDefaults.standard.value(forKey: kExpirationTimestampKey) as? Double {
+                if expirationTimestamp > Date().timeIntervalSince1970 {
+                    updateVipState(isVip: true)
+                    return
                 }
+            }
+            
+            // 结束交易
+            await transaction.finish()
+            
+            // 产品类型
+            let productType = transaction.productType
+            switch productType {
+                // 消耗品，使用一次就没了
+            case .consumable:
+                break
                 
-                // 交易过的商品id
-                tradedProductIDs.insert(transaction.productID)
-                
-                // 结束交易
-                await transaction.finish()
-                
-                // 产品类型
-                let productType = transaction.productType
-                switch productType {
-                        // 消耗品，使用一次就没了
-                    case .consumable:
-                        break
-                        
-                        // 非消耗品，终身有效
-                    case .nonConsumable:
-                        if let dateIn100Years = Calendar.current.date(byAdding: .year, value: 100, to: Date()) {
-                            purchaseSuccesHandler(productID: transaction.productID,
-                                                  transactionID: String(transaction.id),
-                                                  originalTransactionID: String(transaction.originalID),
-                                                  subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
-                                                  originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
-                                                  price: transaction.price?.formatted() ?? "",
-                                                  expirationDate: dateIn100Years,
-                                                  tradedProductIDs: tradedProductIDs.joined(separator: "、"),
-                                                  isCheckedTransaction: handledTransactionIDs.contains(String(transaction.id)))
-                        }
-                        return
-                        
-                        // 自动续订
-                    case .autoRenewable:
-                        break
-                        
-                        // 非自动续订
-                    case .nonRenewable:
-                        break
-                        
-                    default:
-                        break
+                // 非消耗品，终身有效
+            case .nonConsumable:
+                if let dateIn100Years = Calendar.current.date(byAdding: .year, value: 100, to: Date()) {
+                    purchaseSuccesHandler(productID: transaction.productID,
+                                          transactionID: String(transaction.id),
+                                          originalTransactionID: String(transaction.originalID),
+                                          subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
+                                          originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
+                                          price: transaction.price?.formatted() ?? "",
+                                          expirationDate: dateIn100Years)
                 }
+                return
                 
-                // 过期时间
-                if let expirationDate = transaction.expirationDate {
-                    // 过期
-                    if expirationDate.timeIntervalSince1970 < Date().timeIntervalSince1970 {
-                        cancelProductId = ""
-                        updateVipState(isVip: false)
-                    }
-                    // 未过期
-                    else {
-                        purchaseSuccesHandler(productID: transaction.productID,
-                                              transactionID: String(transaction.id),
-                                              originalTransactionID: String(transaction.originalID),
-                                              subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
-                                              originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
-                                              price: transaction.price?.formatted() ?? "",
-                                              expirationDate: expirationDate,
-                                              tradedProductIDs: tradedProductIDs.joined(separator: "、"),
-                                              isCheckedTransaction: handledTransactionIDs.contains(String(transaction.id)))
-                    }
-                } else {
-                    cancelProductId = ""
+                // 自动续订
+            case .autoRenewable:
+                break
+                
+                // 非自动续订
+            case .nonRenewable:
+                break
+                
+            default:
+                break
+            }
+            
+            // 过期时间
+            if let expirationDate = transaction.expirationDate {
+                // 过期
+                if expirationDate.timeIntervalSince1970 < Date().timeIntervalSince1970 {
                     updateVipState(isVip: false)
                 }
-                // 记录校验过的交易id
-                handledTransactionIDs.insert(String(transaction.id))
-                
-                // 处理未验证的交易
-            case let .unverified(transaction, error):
-                // 结束交易
-                await transaction.finish()
-                myPrint("交易验证失败: \(error)")
-                cancelProductId = ""
+                // 未过期
+                else {
+                    purchaseSuccesHandler(productID: transaction.productID,
+                                          transactionID: String(transaction.id),
+                                          originalTransactionID: String(transaction.originalID),
+                                          subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
+                                          originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
+                                          price: transaction.price?.formatted() ?? "",
+                                          expirationDate: expirationDate)
+                }
+            } else {
                 updateVipState(isVip: false)
-                
-                // 购买失败
-                if let failure = purchaseFailure {
-                    failure(error.localizedDescription)
-                    purchaseFailure = nil
-                }
-                // 恢复购买失败
-                else if let failure = restoreFailure {
-                    failure(error.localizedDescription)
-                    restoreFailure = nil
-                }
+            }
+            
+            // 处理未验证的交易
+        case let .unverified(transaction, error):
+            // 结束交易
+            await transaction.finish()
+            myPrint("交易验证失败: \(error)")
+            updateVipState(isVip: false)
+            
+            // 购买失败
+            if let failure = purchaseFailure {
+                failure(error.localizedDescription)
+                purchaseFailure = nil
+            }
+            // 恢复购买失败
+            else if let failure = restoreFailure {
+                failure(error.localizedDescription)
+                restoreFailure = nil
+            }
         }
     }
     
@@ -303,10 +342,7 @@ public class QSPurchase {
                                        subscriptionDate: String,
                                        originalSubscriptionDate: String,
                                        price: String,
-                                       expirationDate: Date,
-                                       tradedProductIDs: String,
-                                       isCheckedTransaction: Bool) {
-        cancelProductId = ""
+                                       expirationDate: Date) {
         updateVipState(isVip: true)
         
         // 保存过期时间
@@ -320,9 +356,7 @@ public class QSPurchase {
                     originalTransactionID,
                     subscriptionDate,
                     originalSubscriptionDate,
-                    price,
-                    tradedProductIDs,
-                    isCheckedTransaction)
+                    price)
             purchaseSuccess = nil
         }
         // 恢复购买成功
@@ -334,8 +368,10 @@ public class QSPurchase {
     
     /// 刷新vip状态
     private func updateVipState(isVip: Bool) {
-        self.isVip = isVip
-        vipAction?(isVip)
+        DispatchQueue.main.async { [weak self] in
+            self?.isVip = isVip
+            self?.vipAction?(isVip)
+        }
     }
     
     private func myPrint(_ items: Any...) {
@@ -345,10 +381,6 @@ public class QSPurchase {
     }
     
     // MARK: - Property
-    // 处理过的交易id
-    private var handledTransactionIDs = Set<String>()
-    // 交易过的商品id
-    private var tradedProductIDs = Set<String>()
     // 所有产品
     private var products: [Product] = []
     private var purchaseSuccess: ((_ productID: String,
@@ -356,17 +388,21 @@ public class QSPurchase {
                                    _ originalTransactionID: String,
                                    _ subscriptionDate: String,
                                    _ originalSubscriptionDate: String,
-                                   _ price: String,
-                                   _ tradedProductIDs: String,
-                                   _ isCheckedTransaction: Bool) -> Void)?
+                                   _ price: String
+                                  ) -> Void)?
     private var purchaseFailure: ((_ error: String) -> Void)?
     private var restoreSuccess: (() -> Void)?
     private var restoreFailure: ((_ error: String) -> Void)?
-    
     private var isVip = false
+    
+    // 是否有历史订单
+    public var hasHistoryTransaction = false
+    // vip回调
     public var vipAction: ((Bool) -> Void)?
-    public var cancelFreeTrialAction: (() -> Void)?
-    public var cancelProductId = ""
+    // 取消续订
+    public var cancelAutoRenewAction: ((_ productId: String, _ transactionId: String) -> Void)?
+    // 取消试订
+    public var cancelFreeTrialAction: ((_ productId: String, _ transactionId: String) -> Void)?
     
     // MARK: - Singleton
     
@@ -378,4 +414,3 @@ public class QSPurchase {
         }
     }
 }
-
