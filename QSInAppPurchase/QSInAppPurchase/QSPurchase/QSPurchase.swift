@@ -170,26 +170,17 @@ public class QSPurchase {
     
     /// 检查历史订单
     private func checkHistoryTransactions() async {
-        if hasHistoryTransaction {
-            return
-        }
-        
         var count = 0
         for await result in Transaction.all {
             switch result {
             case let .verified(transaction):
                 myPrint("transactionId", transaction.id)
-                
                 count += 1
-                if count > 0 {
-                    hasHistoryTransaction = true
-                    break
-                }
-                
             default:
                 continue
             }
         }
+        transactionsCount = count
     }
     
     /// 校验交易
@@ -197,8 +188,6 @@ public class QSPurchase {
         switch result {
             // 已验证的交易
         case let .verified(transaction):
-            myPrint("transactionId", transaction.id)
-            
             // 商品类型是否是续订类型
             if transaction.productType == .autoRenewable {
                 // 是否取消续订
@@ -395,8 +384,8 @@ public class QSPurchase {
     private var restoreFailure: ((_ error: String) -> Void)?
     private var isVip = false
     
-    // 是否有历史订单
-    public var hasHistoryTransaction = false
+    // 历史订单数量
+    public var transactionsCount = 0
     // vip回调
     public var vipAction: ((Bool) -> Void)?
     // 取消续订
