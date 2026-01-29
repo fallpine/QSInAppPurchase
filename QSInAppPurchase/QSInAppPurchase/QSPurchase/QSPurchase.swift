@@ -124,8 +124,13 @@ public class QSPurchase {
     
     /// 校验交易订单
     public func checkTransactions(onSuccess: () -> Void, onFailure: () -> Void) async {
+        var hasCurrentEntitlements = false
         for await result in Transaction.currentEntitlements {
             await verifyTransaction(result: result)
+        }
+        if !hasCurrentEntitlements {
+            isVip = false
+            updateVipState(isVip: false)
         }
         
         if isVip {
