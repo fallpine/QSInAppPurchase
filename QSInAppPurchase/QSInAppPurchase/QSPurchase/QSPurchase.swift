@@ -126,6 +126,7 @@ public class QSPurchase {
     public func checkTransactions(onSuccess: () -> Void, onFailure: () -> Void) async {
         var hasCurrentEntitlements = false
         for await result in Transaction.currentEntitlements {
+            hasCurrentEntitlements = true
             await verifyTransaction(result: result)
         }
         if !hasCurrentEntitlements {
