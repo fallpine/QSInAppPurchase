@@ -361,6 +361,32 @@ public class QSPurchase {
         }
     }
     
+    /// 取消续订处理失败
+    public func handleCancelAutoRenewFailure(id: String) {
+        let historyTransactionId = (UserDefaults.standard.value(forKey: kCancelAutoRenewTransactionIds) as? String) ?? ""
+        
+        if historyTransactionId.contains(id) {
+            var historyTransactionIds = historyTransactionId.components(separatedBy: "、")
+            historyTransactionIds = historyTransactionIds.filter { transactionId in
+                return transactionId != id
+            }
+            UserDefaults.standard.setValue(historyTransactionIds.joined(separator: "、"), forKey: kCancelAutoRenewTransactionIds)
+        }
+    }
+    
+    /// 取消试订处理失败
+    public func handleCancelFreeTrialFailure(id: String) {
+        let historyTransactionId = (UserDefaults.standard.value(forKey: kCancelFreeTrialTransactionIds) as? String) ?? ""
+        
+        if historyTransactionId.contains(id) {
+            var historyTransactionIds = historyTransactionId.components(separatedBy: "、")
+            historyTransactionIds = historyTransactionIds.filter { transactionId in
+                return transactionId != id
+            }
+            UserDefaults.standard.setValue(historyTransactionIds.joined(separator: "、"), forKey: kCancelFreeTrialTransactionIds)
+        }
+    }
+    
     /// 刷新vip状态
     private func updateVipState(isVip: Bool) {
         DispatchQueue.main.async { [weak self] in
