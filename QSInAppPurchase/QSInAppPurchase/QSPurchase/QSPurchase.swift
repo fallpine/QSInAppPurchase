@@ -176,17 +176,20 @@ public class QSPurchase {
     
     /// 检查历史订单
     private func checkHistoryTransactions() async {
-        var count = 0
+        var transactions = [UInt64]()
         for await result in Transaction.all {
             switch result {
             case let .verified(transaction):
-                myPrint("transactionId", transaction.id)
-                count += 1
+                if !transactions.contains(transaction.originalID) {
+                    myPrint("transactionId", transaction.originalID)
+                    transactions.append(transaction.originalID)
+                }
+                
             default:
                 continue
             }
         }
-        transactionsCount = count
+        originalTransactions = transactions
     }
     
     /// 校验交易
@@ -416,8 +419,8 @@ public class QSPurchase {
     private var restoreFailure: ((_ error: String) -> Void)?
     private var isVip = false
     
-    // 历史订单数量
-    public var transactionsCount = 0
+    // 历史原始订单数量
+    public var originalTransactions = [UInt64]()
     // vip回调
     public var vipAction: ((Bool) -> Void)?
     // 取消续订
