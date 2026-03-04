@@ -180,16 +180,16 @@ public class QSPurchase {
         for await result in Transaction.all {
             switch result {
             case let .verified(transaction):
-                if !transactions.contains(transaction.originalID) {
-                    myPrint("transactionId", transaction.originalID)
-                    transactions.append(transaction.originalID)
+                if !transactions.contains(transaction.id) {
+                    myPrint("transactionId", transaction.id)
+                    transactions.append(transaction.id)
                 }
                 
             default:
                 continue
             }
         }
-        originalTransactions = transactions
+        transactionIds = transactions
     }
     
     /// 校验交易
@@ -419,8 +419,8 @@ public class QSPurchase {
     private var restoreFailure: ((_ error: String) -> Void)?
     private var isVip = false
     
-    // 历史原始订单数量
-    public var originalTransactions = [UInt64]()
+    // 历史原始订单
+    public var transactionIds = [UInt64]()
     // vip回调
     public var vipAction: ((Bool) -> Void)?
     // 取消续订
