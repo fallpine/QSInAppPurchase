@@ -394,11 +394,8 @@ public class QSPurchase {
                 await checkHistoryTransactions()
             }
         }
-        
-        DispatchQueue.main.async { [weak self] in
-            self?.isVip = isVip
-            self?.vipAction?(isVip)
-        }
+        self.isVip = isVip
+        self.vipAction?(isVip)
     }
     
     private func myPrint(_ items: Any...) {
