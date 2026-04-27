@@ -390,7 +390,7 @@ public class QSPurchase {
     private func updateVipState(isVip: Bool) {
         // 检查历史订单
         if isVip {
-            Task {
+            Task { @MainActor in
                 await checkHistoryTransactions()
             }
         }
