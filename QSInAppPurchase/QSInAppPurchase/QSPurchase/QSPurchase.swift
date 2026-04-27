@@ -131,7 +131,7 @@ public class QSPurchase {
         }
         if !hasCurrentEntitlements {
             isVip = false
-            updateVipState(isVip: false)
+            await updateVipState(isVip: false)
         }
         
         if isVip {
@@ -162,7 +162,9 @@ public class QSPurchase {
         }
         if !hasTransaction {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-                self?.updateVipState(isVip: false)
+                Task { @MainActor in
+                    await self?.updateVipState(isVip: false)
+                }
             }
         }
         
@@ -228,7 +230,7 @@ public class QSPurchase {
                             if (transaction.price ?? 0) <= 0 {
                                 // 判断是否过期
                                 if (transaction.expirationDate?.timeIntervalSince1970 ?? 0) >= Date().timeIntervalSince1970 {
-                                    updateVipState(isVip: false)
+                                    await updateVipState(isVip: false)
                                     
                                     if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil {
                                         if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil {
@@ -256,7 +258,7 @@ public class QSPurchase {
             // 判断过期时间
             if let expirationTimestamp = UserDefaults.standard.value(forKey: kExpirationTimestampKey) as? Double {
                 if expirationTimestamp > Date().timeIntervalSince1970 {
-                    updateVipState(isVip: true)
+                    await updateVipState(isVip: true)
                     return
                 }
             }
@@ -274,13 +276,13 @@ public class QSPurchase {
                 // 非消耗品，终身有效
             case .nonConsumable:
                 if let dateIn100Years = Calendar.current.date(byAdding: .year, value: 100, to: Date()) {
-                    purchaseSuccesHandler(productID: transaction.productID,
-                                          transactionID: String(transaction.id),
-                                          originalTransactionID: String(transaction.originalID),
-                                          subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
-                                          originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
-                                          price: transaction.price?.formatted() ?? "",
-                                          expirationDate: dateIn100Years)
+                    await purchaseSuccesHandler(productID: transaction.productID,
+                                                transactionID: String(transaction.id),
+                                                originalTransactionID: String(transaction.originalID),
+                                                subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
+                                                originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
+                                                price: transaction.price?.formatted() ?? "",
+                                                expirationDate: dateIn100Years)
                 }
                 return
                 
@@ -300,20 +302,20 @@ public class QSPurchase {
             if let expirationDate = transaction.expirationDate {
                 // 过期
                 if expirationDate.timeIntervalSince1970 < Date().timeIntervalSince1970 {
-                    updateVipState(isVip: false)
+                    await updateVipState(isVip: false)
                 }
                 // 未过期
                 else {
-                    purchaseSuccesHandler(productID: transaction.productID,
-                                          transactionID: String(transaction.id),
-                                          originalTransactionID: String(transaction.originalID),
-                                          subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
-                                          originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
-                                          price: transaction.price?.formatted() ?? "",
-                                          expirationDate: expirationDate)
+                    await purchaseSuccesHandler(productID: transaction.productID,
+                                                transactionID: String(transaction.id),
+                                                originalTransactionID: String(transaction.originalID),
+                                                subscriptionDate: String(transaction.purchaseDate.timeIntervalSince1970 * 1000),
+                                                originalSubscriptionDate: String(transaction.originalPurchaseDate.timeIntervalSince1970 * 1000),
+                                                price: transaction.price?.formatted() ?? "",
+                                                expirationDate: expirationDate)
                 }
             } else {
-                updateVipState(isVip: false)
+                await updateVipState(isVip: false)
             }
             
             // 处理未验证的交易
@@ -321,7 +323,7 @@ public class QSPurchase {
             // 结束交易
             await transaction.finish()
             myPrint("交易验证失败: \(error)")
-            updateVipState(isVip: false)
+            await updateVipState(isVip: false)
             
             // 购买失败
             if let failure = purchaseFailure {
@@ -343,8 +345,8 @@ public class QSPurchase {
                                        subscriptionDate: String,
                                        originalSubscriptionDate: String,
                                        price: String,
-                                       expirationDate: Date) {
-        updateVipState(isVip: true)
+                                       expirationDate: Date) async {
+        await updateVipState(isVip: true)
         
         // 保存过期时间
         let expirationTimestamp = expirationDate.timeIntervalSince1970
@@ -394,18 +396,14 @@ public class QSPurchase {
     }
     
     /// 刷新vip状态
-    private func updateVipState(isVip: Bool) {
+    private func updateVipState(isVip: Bool) async {
         // 检查历史订单
         if isVip {
-            Task {
-                await checkHistoryTransactions()
-            }
+            await checkHistoryTransactions()
         }
         
-        DispatchQueue.main.async { [weak self] in
-            self?.isVip = isVip
-            self?.vipAction?(isVip)
-        }
+        self.isVip = isVip
+        self.vipAction?(isVip)
     }
     
     private func myPrint(_ items: Any...) {
