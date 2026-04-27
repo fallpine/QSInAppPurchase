@@ -169,8 +169,6 @@ public class QSPurchase {
         // 持续监听交易更新
         for await result in Transaction.updates {
             await verifyTransaction(result: result)
-            // 检查历史订单
-            await checkHistoryTransactions()
         }
     }
     
@@ -397,6 +395,11 @@ public class QSPurchase {
     
     /// 刷新vip状态
     private func updateVipState(isVip: Bool) {
+        // 检查历史订单
+        if isVip {
+            await checkHistoryTransactions()
+        }
+        
         DispatchQueue.main.async { [weak self] in
             self?.isVip = isVip
             self?.vipAction?(isVip)
