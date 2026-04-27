@@ -169,32 +169,23 @@ public class QSPurchase {
         // 持续监听交易更新
         for await result in Transaction.updates {
             await verifyTransaction(result: result)
-            // 检查历史订单
-            await checkHistoryTransactions()
         }
     }
     
     /// 检查历史订单
     private func checkHistoryTransactions() async {
-        guard transactionIds.count < 2 else { return }
+        if hasHistoryTransactions { return }
         
-        var transactions = Set(transactionIds)
         for await result in Transaction.all {
             switch result {
-            case let .verified(transaction):
-                if transactions.insert(transaction.id).inserted {
-                    myPrint("transactionId", transaction.id)
-                }
-                
-                if transactions.count >= 2 {
-                    break
-                }
+            case .verified(_):
+                hasHistoryTransactions = true
+                break
                 
             default:
                 continue
             }
         }
-        transactionIds = Array(transactions).sorted()
     }
     
     /// 校验交易
@@ -397,6 +388,13 @@ public class QSPurchase {
     
     /// 刷新vip状态
     private func updateVipState(isVip: Bool) {
+        // 检查历史订单
+        if isVip {
+            Task {
+                await checkHistoryTransactions()
+            }
+        }
+        
         DispatchQueue.main.async { [weak self] in
             self?.isVip = isVip
             self?.vipAction?(isVip)
@@ -425,7 +423,7 @@ public class QSPurchase {
     public var isVip = false
     
     // 历史原始订单
-    public var transactionIds = [UInt64]()
+    public var hasHistoryTransactions = false
     // vip回调
     public var vipAction: ((Bool) -> Void)?
     // 取消续订

@@ -1,6 +1,8 @@
 # QSInAppPurchase
 
-QSInAppPurchase 是一个基于 StoreKit 2 封装的 iOS / watchOS 应用内购买工具，支持获取商品、发起购买、恢复购买、校验当前权益，并提供订阅价格、试用周期、折扣等常用字段扩展。
+QSInAppPurchase 是一个基于 StoreKit 2 封装的应用内购买工具，支持获取商品、发起购买、恢复购买、校验当前权益、监听会员状态变化，并提供常用的订阅价格展示字段。
+
+当前版本：`1.2.7`
 
 ## 环境要求
 
@@ -11,7 +13,7 @@ QSInAppPurchase 是一个基于 StoreKit 2 封装的 iOS / watchOS 应用内购�
 
 ## 安装
 
-使用 CocoaPods 安装：
+在 `Podfile` 中添加：
 
 ```ruby
 pod 'QSInAppPurchase'
@@ -23,9 +25,9 @@ pod 'QSInAppPurchase'
 pod install
 ```
 
-## 基本使用
+## 快速开始
 
-先引入 StoreKit，并使用单例 `QSPurchase.shared`：
+引入模块后，使用 `QSPurchase.shared` 单例：
 
 ```swift
 import StoreKit
@@ -34,11 +36,11 @@ import QSInAppPurchase
 let purchase = QSPurchase.shared
 ```
 
-`QSPurchase` 初始化后会自动监听交易更新。你可以按需监听会员状态变化：
+`QSPurchase` 初始化后会自动监听 StoreKit 交易更新。可以通过 `vipAction` 监听会员状态变化：
 
 ```swift
-purchase.vipAction = { isVip in
-    print("当前 VIP 状态：\(isVip)")
+QSPurchase.shared.vipAction = { isVip in
+    print("VIP 状态：\(isVip)")
 }
 ```
 
@@ -61,13 +63,13 @@ Task {
 }
 ```
 
-也可以通过商品 ID 从已缓存的商品列表中获取：
+获取成功后，商品会缓存在本地，可以通过商品 ID 读取：
 
 ```swift
 let product = QSPurchase.shared.getProduct(by: "com.example.vip.monthly")
 ```
 
-## 发起购买
+## 购买商品
 
 ```swift
 Task {
@@ -80,6 +82,10 @@ Task {
         onSuccess: { productID, transactionID, originalTransactionID, subscriptionDate, originalSubscriptionDate, price in
             print("购买成功：\(productID)")
             print("交易 ID：\(transactionID)")
+            print("原始交易 ID：\(originalTransactionID)")
+            print("订阅时间：\(subscriptionDate)")
+            print("原始订阅时间：\(originalSubscriptionDate)")
+            print("价格：\(price)")
         },
         onFailure: { error in
             print("购买失败：\(error)")
@@ -108,7 +114,7 @@ Task {
 
 ## 校验当前权益
 
-适合在应用启动、进入会员页或需要刷新会员状态时调用：
+可以在应用启动、进入会员页或需要刷新会员状态时调用：
 
 ```swift
 Task {
@@ -123,27 +129,41 @@ Task {
 }
 ```
 
-也可以直接读取当前缓存状态：
+也可以直接读取当前状态：
 
 ```swift
 let isVip = QSPurchase.shared.isVip
 ```
 
-## 取消续订 / 取消试用回调
+## 历史订单状态
 
-如果需要监听用户取消自动续订或取消免费试用：
+`hasHistoryTransactions` 表示当前账号是否存在历史交易记录：
+
+```swift
+let hasHistoryTransactions = QSPurchase.shared.hasHistoryTransactions
+```
+
+当购买成功并刷新为 VIP 状态后，库内部会自动检查历史交易记录。
+
+## 取消续订和取消试用
+
+监听用户取消自动续订：
 
 ```swift
 QSPurchase.shared.cancelAutoRenewAction = { productId, transactionId in
     print("用户取消续订：\(productId), \(transactionId)")
 }
+```
 
+监听用户取消免费试用：
+
+```swift
 QSPurchase.shared.cancelFreeTrialAction = { productId, transactionId in
     print("用户取消试用：\(productId), \(transactionId)")
 }
 ```
 
-如果你的服务端处理失败，可以调用以下方法回滚本地记录，方便下次继续触发处理：
+如果你的服务端处理失败，可以回滚本地记录，方便下次继续触发处理：
 
 ```swift
 QSPurchase.shared.handleCancelAutoRenewFailure(id: transactionId)
@@ -171,7 +191,8 @@ product.paymentMode                // 订阅优惠支付方式
 - 请先在 App Store Connect 中配置好内购商品 ID，并确保传入的 `productIds` 与后台配置一致。
 - 真机测试前，请确认 App 已开启 In-App Purchase 能力。
 - StoreKit 2 的购买、恢复、交易校验都需要在异步上下文中调用。
-- 购买成功后，库会将有效期保存到本地，并通过 `vipAction` 回调刷新 `isVip` 状态。
+- `QSPurchase.shared` 创建后会自动监听交易更新。
+- 购买成功后，库会保存有效期，并通过 `vipAction` 回调刷新 `isVip` 状态。
 
 ## License
 
