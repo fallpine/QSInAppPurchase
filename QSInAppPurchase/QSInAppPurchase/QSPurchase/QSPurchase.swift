@@ -397,7 +397,9 @@ public class QSPurchase {
     private func updateVipState(isVip: Bool) {
         // 检查历史订单
         if isVip {
-            await checkHistoryTransactions()
+            Task {
+                await checkHistoryTransactions()
+            }
         }
         
         DispatchQueue.main.async { [weak self] in
