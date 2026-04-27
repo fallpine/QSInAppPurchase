@@ -372,6 +372,7 @@ public class QSPurchase {
     /// 取消续订处理失败
     public func handleCancelAutoRenewFailure(id: String) {
         let historyTransactionId = (UserDefaults.standard.value(forKey: kCancelAutoRenewTransactionIds) as? String) ?? ""
+          
         
         if historyTransactionId.contains(id) {
             var historyTransactionIds = historyTransactionId.components(separatedBy: "、")
