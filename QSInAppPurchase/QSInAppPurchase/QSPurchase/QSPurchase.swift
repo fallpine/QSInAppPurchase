@@ -234,11 +234,9 @@ public class QSPurchase {
                                                 UserDefaults.standard.setValue(historyTransactionIds.joined(separator: "、"), forKey: kCancelFreeTrialTransactionIds)
                                                 
                                                 cancelFreeTrialAction?(transaction.productID, String(transaction.id))
-                                                UserDefaults.standard.removeObject(forKey: kExpirationTimestampKey)
                                             }
                                         }
                                     }
-                                    return
                                 }
                             }
                         }
