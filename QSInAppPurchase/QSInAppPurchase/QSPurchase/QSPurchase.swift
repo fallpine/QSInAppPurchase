@@ -222,6 +222,7 @@ public class QSPurchase {
                                 // 判断是否过期
                                 if (transaction.expirationDate?.timeIntervalSince1970 ?? 0) >= Date().timeIntervalSince1970 {
                                     updateVipState(isVip: false)
+                                    cancelFreeTrialEveryTimeAction?()
                                     
                                     if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil {
                                         if UserDefaults.standard.value(forKey: kExpirationTimestampKey) != nil {
@@ -425,6 +426,8 @@ public class QSPurchase {
     public var cancelAutoRenewAction: ((_ productId: String, _ transactionId: String) -> Void)?
     // 取消试订
     public var cancelFreeTrialAction: ((_ productId: String, _ transactionId: String) -> Void)?
+    // 取消试订（每次都回调）
+    public var cancelFreeTrialEveryTimeAction: (() -> Void)?
     
     // MARK: - Singleton
     
