@@ -21,6 +21,17 @@ public extension Product {
     }
     
     // MARK: - Property
+    // 是否是可使用商品
+    var isFreeTrial: Bool {
+        get async {
+            guard paymentMode == .freeTrial else {
+                return false
+            }
+
+            return await subscription?.isEligibleForIntroOffer ?? false
+        }
+    }
+    
     // 订阅类型
     var paymentMode: Product.SubscriptionOffer.PaymentMode? {
         return subscription?.introductoryOffer?.paymentMode
